@@ -367,6 +367,10 @@ func chanPackagesFromLines(lnc <-chan string) <-chan util.Packages {
 func listPackages(rootPackage string) util.Packages {
 	r := util.Packages{}
 	filepath.Walk(rootPackage, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			logrus.Error(err)
+			return err
+		}
 		if !info.IsDir() {
 			return nil
 		}
@@ -500,9 +504,42 @@ func removeEmptyDirs(rootPackage string) error {
 	return nil
 }
 
+// exists checks to see if the specified file or directory exists
+//
+func exists(path string) (exists bool) {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
+}
+
+// isRoot inspects a supplied directory path to test if it contains a src and vendor directory
+//
+func isRoot(dir string) bool {
+	return exists(path.Join(dir, "src")) && exists(path.Join(dir, "vendor"))
+}
+
+// cleanup visits the current and parent directories looking for the first src directory
+// and treats that as the root directory of the project.  It then locates the vendor
+// directories that are peers of the src directory and if found then stops and attempts a
+// clean starting at that location.
+//
 func cleanup(dir string, trashConf *conf.Trash) error {
-	gopath := path.Join(dir, "..", "..", "..", "..")
-	gopath = filepath.Clean(gopath)
+
+	gopath := dir
+	for {
+		gopath = filepath.Clean(path.Join(gopath, ".."))
+
+		if isRoot(gopath) {
+			break
+		}
+
+		if (1 == len(gopath) && filepath.Separator == gopath[0]) || 0 == len(gopath) {
+			return fmt.Errorf("the directory '%s' was not part of a recognized go package layout that has a vendor directory", dir)
+		}
+	}
 	os.Setenv("GOPATH", gopath)
 	logrus.Debugf("gopath: '%s'", gopath)
 
@@ -517,9 +554,9 @@ func cleanup(dir string, trashConf *conf.Trash) error {
 		if err := removeUnusedImports(rootPackage, imports); err != nil {
 			logrus.Errorf("Error removing unused dirs: %v", err)
 		}
-		if err := removeEmptyDirs(rootPackage); err != nil {
-			logrus.Errorf("Error removing empty dirs: %v", err)
-		}
+	}
+	if err := removeEmptyDirs(rootPackage); err != nil {
+		logrus.Errorf("Error removing empty dirs: %v", err)
 	}
 	for _, i := range trashConf.Imports {
 		if _, err := os.Stat(dir + "/vendor/" + i.Package); err != nil {

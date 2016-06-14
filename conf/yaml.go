@@ -1,11 +1,13 @@
 package conf
 
 import (
-	yaml "github.com/cloudfoundry-incubator/candiedyaml"
 	"os"
+
+	yaml "github.com/cloudfoundry-incubator/candiedyaml"
 )
 
 type Trash struct {
+	Package string   `yaml:"package,omitempty"`
 	Imports []Import `yaml:"import,omitempty"`
 }
 
