@@ -543,9 +543,6 @@ func cleanup(dir string, trashConf *conf.Trash) error {
 	os.Setenv("GOPATH", gopath)
 	logrus.Debugf("gopath: '%s'", gopath)
 
-	rootPackage := gopath + "/src/"
-	logrus.Debugf("rootPackage: '%s'", rootPackage)
-
 	os.Chdir(path.Join(gopath, "src"))
 
 	importsLen := 0
@@ -558,8 +555,9 @@ func cleanup(dir string, trashConf *conf.Trash) error {
 	if err := removeEmptyDirs(rootPackage); err != nil {
 		logrus.Errorf("Error removing empty dirs: %v", err)
 	}
+
 	for _, i := range trashConf.Imports {
-		if _, err := os.Stat(dir + "/vendor/" + i.Package); err != nil {
+		if _, err := os.Stat(gopath + "/vendor/" + i.Package); err != nil {
 			if os.IsNotExist(err) {
 				logrus.Warnf("Package '%s' has been completely removed: it's probably useless (in trash.yml)", i.Package)
 			} else {
