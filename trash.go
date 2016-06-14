@@ -530,8 +530,6 @@ func cleanup(dir string, trashConf *conf.Trash) error {
 
 	gopath := dir
 	for {
-		gopath = filepath.Clean(path.Join(gopath, ".."))
-
 		if isRoot(gopath) {
 			break
 		}
@@ -539,6 +537,8 @@ func cleanup(dir string, trashConf *conf.Trash) error {
 		if (1 == len(gopath) && filepath.Separator == gopath[0]) || 0 == len(gopath) {
 			return fmt.Errorf("the directory '%s' was not part of a recognized go package layout that has a vendor directory", dir)
 		}
+
+		gopath = filepath.Clean(path.Join(gopath, ".."))
 	}
 	os.Setenv("GOPATH", gopath)
 	logrus.Debugf("gopath: '%s'", gopath)
