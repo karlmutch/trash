@@ -543,7 +543,7 @@ func cleanup(dir string, trashConf *conf.Trash) error {
 	os.Setenv("GOPATH", gopath)
 	logrus.Debugf("gopath: '%s'", gopath)
 
-	rootPackage := dir[len(gopath+"/src/"):]
+	rootPackage := gopath + "/src/"
 	logrus.Debugf("rootPackage: '%s'", rootPackage)
 
 	os.Chdir(path.Join(gopath, "src"))
