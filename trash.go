@@ -14,11 +14,9 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-	"github.com/rancher/trash/conf"
-	"github.com/rancher/trash/util"
 )
 
-var Version string = "v0.3.0-dev"
+var Version string = "v0.3.0-km"
 
 func exit(err error) {
 	if err != nil {
@@ -95,7 +93,7 @@ func run(c *cli.Context) error {
 	logrus.Infof("Trash! Reading file: '%s'", trashFile)
 
 	os.Setenv("GO15VENDOREXPERIMENT", "1")
-	trashConf, err := conf.Parse(trashFile)
+	trashConf, err := Parse(trashFile)
 	if err != nil {
 		return err
 	}
@@ -108,7 +106,7 @@ func run(c *cli.Context) error {
 	return cleanup(dir, trashConf)
 }
 
-func vendor(keep bool, trashDir, dir string, trashConf *conf.Trash) error {
+func vendor(keep bool, trashDir, dir string, trashConf *Trash) error {
 	logrus.WithFields(logrus.Fields{"keep": keep, "dir": dir, "trashConf": trashConf}).Debug("vendor")
 	defer os.Chdir(dir)
 
@@ -163,7 +161,7 @@ func vendor(keep bool, trashDir, dir string, trashConf *conf.Trash) error {
 	return nil
 }
 
-func prepareCache(trashDir string, i conf.Import) {
+func prepareCache(trashDir string, i Import) {
 	logrus.WithFields(logrus.Fields{"trashDir": trashDir, "i": i}).Debug("entering prepareCache")
 	os.Chdir(trashDir)
 	repoDir := path.Join(trashDir, "src", i.Package)
@@ -175,7 +173,7 @@ func prepareCache(trashDir string, i conf.Import) {
 func isBranch(remote, version string) bool {
 	b := remote + "/" + version
 	logrus.Debugf("Checking if '%s' is a branch", b)
-	for l := range util.CmdOutLines(exec.Command("git", "branch", "--list", "-r", b)) {
+	for l := range CmdOutLines(exec.Command("git", "branch", "--list", "-r", b)) {
 		if strings.TrimSpace(l) == b {
 			return true
 		}
@@ -183,7 +181,7 @@ func isBranch(remote, version string) bool {
 	return false
 }
 
-func checkout(trashDir string, i conf.Import) {
+func checkout(trashDir string, i Import) {
 	logrus.WithFields(logrus.Fields{"trashDir": trashDir, "i": i}).Debug("entering checkout")
 	repoDir := path.Join(trashDir, "src", i.Package)
 	if err := os.Chdir(repoDir); err != nil {
@@ -206,7 +204,7 @@ func checkout(trashDir string, i conf.Import) {
 	}
 }
 
-func cpy(vendorDir, trashDir string, i conf.Import) {
+func cpy(vendorDir, trashDir string, i Import) {
 	repoDir := path.Join(trashDir, "src", i.Package)
 	target, _ := path.Split(path.Join(vendorDir, i.Package))
 	os.MkdirAll(target, 0755)
@@ -215,7 +213,7 @@ func cpy(vendorDir, trashDir string, i conf.Import) {
 	}
 }
 
-func checkGitRepo(trashDir, repoDir string, i conf.Import) error {
+func checkGitRepo(trashDir, repoDir string, i Import) error {
 	logrus.WithFields(logrus.Fields{"repoDir": repoDir, "i": i}).Debug("checkGitRepo")
 	if err := os.Chdir(repoDir); err != nil {
 		if os.IsNotExist(err) {
@@ -239,7 +237,7 @@ func checkGitRepo(trashDir, repoDir string, i conf.Import) error {
 }
 
 func remoteExists(remoteName string) bool {
-	lines := util.CmdOutLines(exec.Command("git", "remote"))
+	lines := CmdOutLines(exec.Command("git", "remote"))
 	for line := range lines {
 		if strings.TrimSpace(line) == remoteName {
 			return true
@@ -268,7 +266,7 @@ func remoteName(url string) string {
 	return hex.EncodeToString(ss[:])[:7]
 }
 
-func cloneGitRepo(trashDir, repoDir string, i conf.Import) error {
+func cloneGitRepo(trashDir, repoDir string, i Import) error {
 	logrus.Infof("Preparing cache for '%s'", i.Package)
 	os.Chdir(trashDir)
 	if err := os.RemoveAll(repoDir); err != nil {
@@ -293,7 +291,7 @@ func cloneGitRepo(trashDir, repoDir string, i conf.Import) error {
 	return nil
 }
 
-func fetch(i conf.Import) error {
+func fetch(i Import) error {
 	remote := remoteName(i.Repo)
 	logrus.Infof("Fetching latest commits from '%s' for '%s'", remote, i.Package)
 	if bytes, err := exec.Command("git", "fetch", "-f", "-t", remote).CombinedOutput(); err != nil {
@@ -303,8 +301,8 @@ func fetch(i conf.Import) error {
 	return nil
 }
 
-func parentPackages(root, p string) util.Packages {
-	r := util.Packages{}
+func parentPackages(root, p string) Packages {
+	r := Packages{}
 	lenRoot := len(root)
 	for len(p) > lenRoot {
 		r[p] = true
@@ -316,7 +314,7 @@ func parentPackages(root, p string) util.Packages {
 	return r
 }
 
-func listImports(rootPackage, pkg string) <-chan util.Packages {
+func listImports(rootPackage, pkg string) <-chan Packages {
 	pkgPath := pkg
 	if pkg != rootPackage && !strings.HasPrefix(pkg, rootPackage+"/") {
 		pkgPath = rootPackage + "/vendor/" + pkg
@@ -350,13 +348,13 @@ func listImports(rootPackage, pkg string) <-chan util.Packages {
 			}
 		}
 	}()
-	lnc := util.MergeStrChans(sch, util.OneStr(pkg))
+	lnc := MergeStrChans(sch, OneStr(pkg))
 	return chanPackagesFromLines(lnc)
 }
 
-func chanPackagesFromLines(lnc <-chan string) <-chan util.Packages {
-	return util.ChanPackages(func() util.Packages {
-		r := util.Packages{}
+func chanPackagesFromLines(lnc <-chan string) <-chan Packages {
+	return ChanPackages(func() Packages {
+		r := Packages{}
 		for v := range lnc {
 			r[v] = true
 		}
@@ -364,8 +362,8 @@ func chanPackagesFromLines(lnc <-chan string) <-chan util.Packages {
 	})
 }
 
-func listPackages(rootPackage string) util.Packages {
-	r := util.Packages{}
+func listPackages(rootPackage string) Packages {
+	r := Packages{}
 	filepath.Walk(rootPackage, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			logrus.Error(err)
@@ -391,23 +389,23 @@ func listPackages(rootPackage string) util.Packages {
 	return r
 }
 
-func collectImports(rootPackage string) util.Packages {
+func collectImports(rootPackage string) Packages {
 	logrus.Infof("Collecting packages in '%s'", rootPackage)
 
-	imports := util.Packages{}
+	imports := Packages{}
 	packages := listPackages(rootPackage)
 
-	seenPackages := util.Packages{}
+	seenPackages := Packages{}
 	for len(packages) > 0 {
-		cs := []<-chan util.Packages{}
+		cs := []<-chan Packages{}
 		for p := range packages {
 			cs = append(cs, listImports(rootPackage, p))
 		}
-		for ps := range util.MergePackagesChans(cs...) {
+		for ps := range MergePackagesChans(cs...) {
 			imports.Merge(ps)
 		}
 		seenPackages.Merge(packages)
-		packages = util.Packages{}
+		packages = Packages{}
 		for i := range imports {
 			if !seenPackages[i] {
 				packages[i] = true
@@ -423,8 +421,8 @@ func collectImports(rootPackage string) util.Packages {
 	return imports
 }
 
-func removeUnusedImports(rootPackage string, imports util.Packages) error {
-	importsParents := util.Packages{}
+func removeUnusedImports(rootPackage string, imports Packages) error {
+	importsParents := Packages{}
 	for i := range imports {
 		importsParents.Merge(parentPackages("", i))
 	}
@@ -526,7 +524,7 @@ func isRoot(dir string) bool {
 // directories that are peers of the src directory and if found then stops and attempts a
 // clean starting at that location.
 //
-func cleanup(dir string, trashConf *conf.Trash) error {
+func cleanup(dir string, trashConf *Trash) error {
 
 	gopath := dir
 	for {
@@ -543,7 +541,10 @@ func cleanup(dir string, trashConf *conf.Trash) error {
 	os.Setenv("GOPATH", gopath)
 	logrus.Debugf("gopath: '%s'", gopath)
 
-	os.Chdir(path.Join(gopath, "src"))
+	rootPackage := path.Join(gopath, "src")
+	os.Chdir(rootPackage)
+
+	vendorDir := path.Join(gopath, "vendor")
 
 	importsLen := 0
 	for imports := collectImports(rootPackage); importsLen != len(imports); imports = collectImports(rootPackage) {
@@ -557,11 +558,12 @@ func cleanup(dir string, trashConf *conf.Trash) error {
 	}
 
 	for _, i := range trashConf.Imports {
-		if _, err := os.Stat(gopath + "/vendor/" + i.Package); err != nil {
+		packageDir := path.Join(vendorDir, i.Package)
+		if _, err := os.Stat(packageDir); err != nil {
 			if os.IsNotExist(err) {
 				logrus.Warnf("Package '%s' has been completely removed: it's probably useless (in trash.yml)", i.Package)
 			} else {
-				logrus.Errorf("os.Stat() failed for: %s", dir+"/vendor/"+i.Package)
+				logrus.Errorf("os.Stat() failed for: %s", packageDir)
 			}
 		}
 	}
