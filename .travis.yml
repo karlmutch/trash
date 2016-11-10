@@ -1,0 +1,15 @@
+dist: trusty
+
+language: go
+
+go:
+  - 1.7.1
+  - master
+
+
+deploy:
+  provider: releases
+  file: "./bin/trash"
+  on:
+    repo: karlmutch/trash
+    tags: true
