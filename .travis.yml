@@ -6,10 +6,13 @@ go:
   - 1.7.1
   - master
 
+script:
+  - go get -d
+  - go build
 
 deploy:
   provider: releases
-  file: "./bin/trash"
+  file: "./trash"
   on:
     repo: karlmutch/trash
     tags: true
